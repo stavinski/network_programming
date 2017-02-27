@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1488230729 source:/root/src/network_programming/icmp/main.c
+1488236133 source:/root/src/network_programming/icmp/main.c
 	<stdio.h>
 	<stdlib.h>
 	<stdint.h>
@@ -20,5 +20,19 @@
 
 1488229207 source:/root/src/network_programming/icmp/networking.c
 	<stdlib.h>
+	"networking.h"
+
+1488236118 source:/root/src/network_programming/icmp/listener.c
+	"listener.h"
+
+1488236108 /root/src/network_programming/icmp/listener.h
+	<stdlib.h>
+	<stdio.h>
+	<stdint.h>
+	<string.h>
+	<sys/socket.h>
+	<netinet/in.h>
+	<netinet/ip.h>
+	<netinet/ip_icmp.h>
 	"networking.h"
 
