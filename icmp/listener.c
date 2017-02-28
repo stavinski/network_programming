@@ -9,7 +9,7 @@ uint32_t icmp_listen(uint32_t saddr)
 
     if (sockfd < 0)
     {
-        perror("listen:sockfd");
+        perror("icmp_listen:sockfd");
         return -1;
     }
 
@@ -19,14 +19,15 @@ uint32_t icmp_listen(uint32_t saddr)
 
     if (bind(sockfd, (sockaddr*)&servaddr, sizeof(servaddr)) < 0)
     {
-        perror("listen:bind");
+        perror("icmp_listen:bind");
         close(sockfd);
         return -1;
     }
 
     if (listen(sockfd, 1) < 0)
     {
-        perror("listen:listen");
+        perror("icmp_listen:listen");
+        close(sockfd);
         return -1;
     }
 
@@ -35,6 +36,7 @@ uint32_t icmp_listen(uint32_t saddr)
     return sockfd;
 }
 
-uint32_t icmp_stop(uint32_t handle)
+uint32_t icmp_stop(uint32_t hndl_listener)
 {
+
 }

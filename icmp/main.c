@@ -2,24 +2,32 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <errno.h>
 #include <signal.h>
 
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <netinet/ip.h>
-#include <netinet/ip_icmp.h>
 
-#include "networking.h"
+#include "sender.h"
+
+#ifdef DEBUG
+    #include "debugging.h"
+#endif
 
 #define PAYLOAD_SIZE 56
+
+#define HR(code, s) \
+    if (code < 0) { \
+        perror(s); \
+        exit(EXIT_FAILURE); \
+    }
 
 void usage(char *ctx)
 {
     printf("usage: %s <destination_ip>\n", ctx);
 }
 
+// handle to the socket
 int32_t sockfd;
 
 void handle_signal(int signalno)
@@ -35,9 +43,7 @@ int main(int argc, char *argv[])
 {
     uint32_t daddr;
     sockaddr_in servaddr;
-    char packet[PAYLOAD_SIZE + ICMP_ECHO_LEN];
-    char payload[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCDEFGHIJKLMNOPQR";
-    icmphdr *icmp = (icmphdr *)packet;
+    const u_char payload[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCDEFGHIJKLMNOPQR";
 
     if (argc < 2)
     {
@@ -52,49 +58,30 @@ int main(int argc, char *argv[])
     }
 
     daddr = inet_addr(argv[1]);
-    sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+    sockfd = icmp_open(daddr, &servaddr);
 
-    if (sockfd < 0)
+    HR(sockfd, "icmp_open");
+
+    icmp_send_packet packet;
+    packet.payload = payload;
+    packet.payload_size = PAYLOAD_SIZE;
+
+    int32_t seq, bytes_sent;
+    for (seq = 1; ; seq++)
     {
-        perror("socket");
-        exit(EXIT_FAILURE);
-    }
-
-    // server address settings
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = daddr;
-    memset(&servaddr.sin_zero, 0, sizeof(servaddr.sin_zero));
-
-    // fill payload
-    memcpy(packet + ICMP_ECHO_LEN, payload, sizeof(PAYLOAD_SIZE));
-
-    // constant ICMP fields
-    icmp->type = ICMP_ECHO;
-    icmp->code = 0;
-    icmp->checksum = 0;
-    icmp->un.echo.id = htons(rand());
-
-    uint32_t seq;
-
-    // infinite loop handled via SIGINT
-    for (seq = 0;;seq++)
-    {
-        // dynamic ICMP fields
-        icmp->checksum = 0;
-        icmp->un.echo.sequence = htons(seq);
-        icmp->checksum = checksum((uint16_t *)packet, ICMP_ECHO_LEN + PAYLOAD_SIZE);
-
-        int32_t bytes_sent = sendto(sockfd, packet, ICMP_ECHO_LEN + PAYLOAD_SIZE, 0, (sockaddr*)&servaddr, sizeof(sockaddr_in));
+        packet.sequence = seq;
+        bytes_sent = icmp_send(sockfd, &servaddr, packet);
 
         if (bytes_sent < 0)
         {
-            perror("sendto");
+            perror("icmp_sent");
             exit(EXIT_FAILURE);
         }
 
-        printf("ping to %s\tbytes sent: %d\n", argv[1], bytes_sent);
+        printf("ping to %s\t bytes sent: %d\n", inet_ntoa(servaddr.sin_addr), bytes_sent);
         fflush(stdout);
-        sleep(2);
+
+        sleep(1);
     }
 
     return EXIT_SUCCESS;
