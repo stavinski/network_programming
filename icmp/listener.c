@@ -31,8 +31,6 @@ uint32_t icmp_listen(uint32_t saddr)
         return -1;
     }
 
-
-
     return sockfd;
 }
 

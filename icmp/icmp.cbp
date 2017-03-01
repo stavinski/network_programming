@@ -14,6 +14,7 @@
 				<Option parameters="192.168.161.2" />
 				<Compiler>
 					<Add option="-g" />
+					<Add option="-DDEBUG" />
 				</Compiler>
 			</Target>
 			<Target title="Release">
@@ -32,6 +33,13 @@
 		<Compiler>
 			<Add option="-Wall" />
 		</Compiler>
+		<Unit filename="debugging.c">
+			<Option compilerVar="CC" />
+			<Option target="Debug" />
+		</Unit>
+		<Unit filename="debugging.h">
+			<Option target="Debug" />
+		</Unit>
 		<Unit filename="listener.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -43,6 +51,9 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="networking.h" />
+		<Unit filename="sender.c">
+			<Option compilerVar="CC" />
+		</Unit>
 		<Unit filename="sender.h" />
 		<Extensions>
 			<code_completion />

@@ -30,18 +30,18 @@ void usage(char *ctx)
 // handle to the socket
 int32_t sockfd;
 
+// controls when quit via SIGINT siglnal
+volatile sig_atomic_t quit = 0;
+
+// handle sigint
 void handle_signal(int signalno)
 {
-    if (signalno == SIGINT)
-    {
-        close(sockfd);
-        exit(EXIT_SUCCESS);
-    }
+    quit = 1;
 }
 
 int main(int argc, char *argv[])
 {
-    uint32_t daddr;
+    int32_t daddr;
     sockaddr_in servaddr;
     const u_char payload[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCDEFGHIJKLMNOPQR";
 
@@ -58,8 +58,14 @@ int main(int argc, char *argv[])
     }
 
     daddr = inet_addr(argv[1]);
-    sockfd = icmp_open(daddr, &servaddr);
 
+    if (daddr == -1)
+    {
+        printf("destination address %s is not a valid IP address\n", argv[1]);
+        exit(EXIT_FAILURE);
+    }
+
+    sockfd = icmp_open(daddr, &servaddr);
     HR(sockfd, "icmp_open");
 
     icmp_send_packet packet;
@@ -82,6 +88,13 @@ int main(int argc, char *argv[])
         fflush(stdout);
 
         sleep(1);
+
+        // if we have had a SIGINT quit and do cleanup
+        if (quit == 1)
+        {
+            close(sockfd);
+            exit(EXIT_FAILURE);
+        }
     }
 
     return EXIT_SUCCESS;
