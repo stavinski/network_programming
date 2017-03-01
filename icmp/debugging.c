@@ -11,7 +11,7 @@ void hex_dump(const char *prefix, u_char *ptr, size_t size)
     {
         printf("0x%02x ", p[i]);
 
-        if (i % 8 == 0)
+        if ((i + 1) % 8 == 0)
         {
             printf("\n");
         }

@@ -18,6 +18,7 @@ struct pseudohdr
 
 // saves typing
 typedef struct pseudohdr pseudohdr;
+typedef struct iphdr iphdr;
 typedef struct icmphdr icmphdr;
 typedef struct sockaddr sockaddr;
 typedef struct sockaddr_in sockaddr_in;

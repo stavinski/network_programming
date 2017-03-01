@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#include "sender.h"
+#include "pinger.h"
 
 #ifdef DEBUG
     #include "debugging.h"
@@ -27,7 +27,7 @@ void usage(char *ctx)
     printf("usage: %s <destination_ip>\n", ctx);
 }
 
-// handle to the socket
+// handle to the sockets
 int32_t sockfd;
 
 // controls when quit via SIGINT siglnal
@@ -42,7 +42,6 @@ void handle_signal(int signalno)
 int main(int argc, char *argv[])
 {
     int32_t daddr;
-    sockaddr_in servaddr;
     const u_char payload[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCDEFGHIJKLMNOPQR";
 
     if (argc < 2)
@@ -65,27 +64,21 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    sockfd = icmp_open(daddr, &servaddr);
-    HR(sockfd, "icmp_open");
+    int32_t sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+    HR(sockfd, "socket")
 
-    icmp_send_packet packet;
-    packet.payload = payload;
-    packet.payload_size = PAYLOAD_SIZE;
+    echo icmp_echo;
+    icmp_echo.id = getpid();
 
-    int32_t seq, bytes_sent;
-    for (seq = 1; ; seq++)
+    int32_t seq, bytes_sent, bytes_received;
+    for (seq = 1;; seq++)
     {
-        packet.sequence = seq;
-        bytes_sent = icmp_send(sockfd, &servaddr, packet);
+        icmp_echo.sequence = seq;
+        bytes_sent = icmp_send(sockfd, icmp_echo, daddr, payload, PAYLOAD_SIZE);
+        HR(bytes_sent, "icmp_send")
 
-        if (bytes_sent < 0)
-        {
-            perror("icmp_sent");
-            exit(EXIT_FAILURE);
-        }
-
-        printf("ping to %s\t bytes sent: %d\n", inet_ntoa(servaddr.sin_addr), bytes_sent);
-        fflush(stdout);
+        bytes_received = icmp_receive(sockfd, icmp_echo);
+        HR(bytes_received, "icmp_receive")
 
         sleep(1);
 
