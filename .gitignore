@@ -34,3 +34,4 @@
 
 # Output dirs
 bin
+build*

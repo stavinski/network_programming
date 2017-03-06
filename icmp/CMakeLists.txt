@@ -1,0 +1,6 @@
+project(icmp)
+cmake_minimum_required(VERSION 2.8)
+aux_source_directory(. SRC_LIST)
+file(GLOB HEADERS *.h)
+file(GLOB SOURCES *.c)
+add_executable(${PROJECT_NAME} main.c ${HEADERS} ${SOURCES})
