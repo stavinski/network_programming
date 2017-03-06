@@ -74,10 +74,10 @@ int main(int argc, char *argv[])
     for (seq = 1;; seq++)
     {
         icmp_echo.sequence = seq;
-        bytes_sent = icmp_send(sockfd, icmp_echo, daddr, payload, PAYLOAD_SIZE);
+        bytes_sent = icmp_send(sockfd, &icmp_echo, daddr, payload, PAYLOAD_SIZE);
         HR(bytes_sent, "icmp_send")
 
-        bytes_received = icmp_receive(sockfd, icmp_echo);
+        bytes_received = icmp_receive(sockfd, &icmp_echo);
         HR(bytes_received, "icmp_receive")
 
         sleep(1);

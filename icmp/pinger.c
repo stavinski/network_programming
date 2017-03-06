@@ -1,7 +1,8 @@
 #include "pinger.h"
 
-int32_t icmp_send(int32_t sockfd, echo icmp_echo, uint32_t daddr, const u_char *payload, size_t payload_size)
+int32_t icmp_send(int32_t sockfd, echo *icmp_echo, uint32_t daddr, const u_char *payload, size_t payload_size)
 {
+    struct timespec sent_ts;
     sockaddr_in servaddr;
     char packet[payload_size + ICMP_ECHO_LEN];
     icmphdr *icmp = (icmphdr*)packet;
@@ -21,19 +22,35 @@ int32_t icmp_send(int32_t sockfd, echo icmp_echo, uint32_t daddr, const u_char *
     icmp->type = ICMP_ECHO;
     icmp->code = 0;
     icmp->checksum = 0;
-    icmp->un.echo.id = htons(icmp_echo.id);
-    icmp->un.echo.sequence = htons(icmp_echo.sequence);
+    icmp->un.echo.id = htons(icmp_echo->id);
+    icmp->un.echo.sequence = htons(icmp_echo->sequence);
     icmp->checksum = checksum((uint16_t *)packet, ICMP_ECHO_LEN + payload_size);
 
 #ifdef DEBUG
     DBG_HEX_DUMP("icmp header", icmp, ICMP_ECHO_LEN)
 #endif // DEBUG
 
-    return sendto(sockfd, packet, ICMP_ECHO_LEN + payload_size, 0, (sockaddr*)&servaddr, sizeof(sockaddr_in));
+    if (sendto(sockfd, packet, ICMP_ECHO_LEN + payload_size, 0, (sockaddr*)&servaddr, sizeof(sockaddr_in)) < 0)
+    {
+      perror("sendto");
+      return -1;
+    }
+    
+    if (clock_gettime(CLOCK_MONOTONIC, &sent_ts) < 0)
+    {
+      perror("clock_gettime");
+      return -1;
+    }
+
+    // record timestamp was sent at
+    icmp_echo->sent = sent_ts;
+    return 0;
 }
 
-int32_t icmp_receive(int32_t sockfd, echo icmp_echo)
+int32_t icmp_receive(int32_t sockfd, echo *icmp_echo)
 {
+    struct timespec received_ts;
+    struct timeval timeout_tv;
     u_char packet[PACKET_SIZE];
     icmphdr *icmp = NULL;
     iphdr *iph = NULL;
@@ -44,7 +61,14 @@ int32_t icmp_receive(int32_t sockfd, echo icmp_echo)
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = INADDR_ANY;
     memset(&servaddr.sin_zero, 0, sizeof(servaddr.sin_zero));
+    
 
+    if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout_tv, sizeof(timeout_tv)) < 0)
+    {
+        perror("setsockopt");
+        return -1;
+    }
+    
     bytes_received = recvfrom(sockfd, packet, PACKET_SIZE, 0, (sockaddr*)&clientaddr, &client_len);
 
     if (bytes_received < 0)
@@ -52,7 +76,13 @@ int32_t icmp_receive(int32_t sockfd, echo icmp_echo)
         perror("icmp_listen:recvfrom");
         return -1;
     }
-
+    
+    if (clock_gettime(CLOCK_MONOTONIC, &received_ts) < 0)
+    {
+        perror("clock_gettime");
+        return -1;
+    }
+    
 #ifdef DEBUG
     DBG_HEX_DUMP("packet", packet, PACKET_SIZE)
 #endif // DEBUG
@@ -71,13 +101,13 @@ int32_t icmp_receive(int32_t sockfd, echo icmp_echo)
         uint16_t seq = ntohs(icmp->un.echo.sequence);
 
         // correlate using supplied echo fields
-        if ((id == icmp_echo.id) && (seq == icmp_echo.sequence))
+        if ((id == icmp_echo->id) && (seq == icmp_echo->sequence))
         {
-            char *srcaddr = inet_ntoa(clientaddr.sin_addr);
-            printf("%d bytes from %s: icmp_seq=%d\n", bytes_received, srcaddr, seq);
+            char *srcaddr = inet_ntoa(clientaddr.sin_addr);                        
+            double diff =  (((double)received_ts.tv_nsec - (double)icmp_echo->sent.tv_nsec) / 1000000);
+            printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.3lfms\n", bytes_received, srcaddr, seq, iph->ttl, diff);
         }
     }
 
     return bytes_received;
 }
-
