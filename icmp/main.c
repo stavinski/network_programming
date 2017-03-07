@@ -78,7 +78,11 @@ int main(int argc, char *argv[])
         HR(bytes_sent, "icmp_send")
 
         bytes_received = icmp_receive(sockfd, &icmp_echo);
-        HR(bytes_received, "icmp_receive")
+        if ((bytes_received < 0) && (bytes_received != -RECEIVE_TIMEOUT))
+        {
+            perror("icmp_send");
+            exit(EXIT_FAILURE);
+        }
 
         sleep(1);
 

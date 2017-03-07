@@ -2,6 +2,7 @@
 
 int32_t icmp_send(int32_t sockfd, echo *icmp_echo, uint32_t daddr, const u_char *payload, size_t payload_size)
 {
+    int32_t bytes_sent;
     struct timespec sent_ts;
     sockaddr_in servaddr;
     char packet[payload_size + ICMP_ECHO_LEN];
@@ -30,21 +31,24 @@ int32_t icmp_send(int32_t sockfd, echo *icmp_echo, uint32_t daddr, const u_char 
     DBG_HEX_DUMP("icmp header", icmp, ICMP_ECHO_LEN)
 #endif // DEBUG
 
-    if (sendto(sockfd, packet, ICMP_ECHO_LEN + payload_size, 0, (sockaddr*)&servaddr, sizeof(sockaddr_in)) < 0)
+    bytes_sent = sendto(sockfd, packet, ICMP_ECHO_LEN + payload_size, 0, (sockaddr*)&servaddr, sizeof(sockaddr_in));
+    
+    if (bytes_sent < 0)
     {
       perror("sendto");
-      return -1;
+      return -SEND_FAILURE;
     }
     
     if (clock_gettime(CLOCK_MONOTONIC, &sent_ts) < 0)
     {
       perror("clock_gettime");
-      return -1;
+      return -SEND_FAILURE;
     }
 
     // record timestamp was sent at
     icmp_echo->sent = sent_ts;
-    return 0;
+    
+    return bytes_sent;
 }
 
 int32_t icmp_receive(int32_t sockfd, echo *icmp_echo)
@@ -61,26 +65,37 @@ int32_t icmp_receive(int32_t sockfd, echo *icmp_echo)
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = INADDR_ANY;
     memset(&servaddr.sin_zero, 0, sizeof(servaddr.sin_zero));
-    
 
-    if (setsockopt (sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout_tv, sizeof(timeout_tv)) < 0)
+    // set timeout for receive
+    timeout_tv.tv_sec = 2;
+    timeout_tv.tv_usec = 0;
+    
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout_tv, sizeof(timeout_tv)) < 0)
     {
         perror("setsockopt");
-        return -1;
+        return -RECEIVE_FAILURE;
     }
     
     bytes_received = recvfrom(sockfd, packet, PACKET_SIZE, 0, (sockaddr*)&clientaddr, &client_len);
-
+    int32_t last_errno = errno;
+    
     if (bytes_received < 0)
-    {
-        perror("icmp_listen:recvfrom");
-        return -1;
+    {        
+       // check if it is a timeout
+       if (last_errno == EAGAIN)
+       {
+           puts("response timed out");
+           return -RECEIVE_TIMEOUT;
+       }
+       
+       perror("icmp_listen:recvfrom");
+       return -RECEIVE_FAILURE;
     }
     
     if (clock_gettime(CLOCK_MONOTONIC, &received_ts) < 0)
     {
         perror("clock_gettime");
-        return -1;
+        return -RECEIVE_FAILURE;
     }
     
 #ifdef DEBUG

@@ -7,6 +7,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <errno.h>
+#include <linux/errno.h>
 
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -20,6 +22,12 @@
     #include "debugging.h"
 #endif
 
+// error codes
+#define SEND_FAILURE    1
+#define SEND_TIMEOUT    2
+#define RECEIVE_FAILURE 1
+#define RECEIVE_TIMEOUT 2
+
 #define PACKET_SIZE 1024
 
 // the icmp echo specific correlation fields
@@ -30,9 +38,7 @@ typedef struct echo
     uint16_t sequence;
 } echo;
 
-int32_t icmp_open();
 int32_t icmp_send(int32_t sockfd, echo *icmp_echo, uint32_t daddr, const u_char *payload, size_t payload_size);
 int32_t icmp_receive(int32_t sockfd, echo *icmp_echo);
-int32_t icmp_close(int32_t sockfd);
 
 #endif // PINGER_INCLUDED_H_
