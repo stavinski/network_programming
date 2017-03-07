@@ -44,6 +44,12 @@ int main(int argc, char *argv[])
     int32_t daddr;
     const u_char payload[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCDEFGHIJKLMNOPQR";
 
+    if (getuid() != 0)
+    {
+        printf("requires root previleges\n");
+        exit(EXIT_FAILURE);
+    }
+    
     if (argc < 2)
     {
         usage(argv[0]);

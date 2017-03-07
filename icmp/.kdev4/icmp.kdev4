@@ -12,7 +12,7 @@ Extra Arguments=
 Install Directory=file:///usr/local
 
 [CustomDefinesAndIncludes][ProjectPath0]
-Defines=\x00\x00\x00\x01\x00\x00\x00\n\x00D\x00E\x00B\x00U\x00G\x00\x00\x00\n\x00\x00\x00\x00\x02\x001
+Defines=\x00\x00\x00\x00
 Includes=\x00\x00\x00\x00
 Path=.
 
@@ -20,6 +20,9 @@ Path=.
 Name=GCC
 Path=gcc
 Type=GCC
+
+[Launch]
+Launch Configurations=
 
 [Project]
 VersionControlSupport=kdevgit

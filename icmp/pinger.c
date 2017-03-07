@@ -110,19 +110,30 @@ int32_t icmp_receive(int32_t sockfd, echo *icmp_echo)
     DBG_HEX_DUMP("icmp", icmp, sizeof(icmphdr))
 #endif // DEBUG
 
-    if (icmp->type == ICMP_ECHOREPLY)
+    switch (icmp->type)
     {
-        uint16_t id = ntohs(icmp->un.echo.id);
-        uint16_t seq = ntohs(icmp->un.echo.sequence);
+        uint16_t id, seq;
+        
+        case ICMP_ECHOREPLY:
+            id = ntohs(icmp->un.echo.id);
+            seq = ntohs(icmp->un.echo.sequence);
 
-        // correlate using supplied echo fields
-        if ((id == icmp_echo->id) && (seq == icmp_echo->sequence))
-        {
-            char *srcaddr = inet_ntoa(clientaddr.sin_addr);                        
-            double diff =  (((double)received_ts.tv_nsec - (double)icmp_echo->sent.tv_nsec) / 1000000);
-            printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.3lfms\n", bytes_received, srcaddr, seq, iph->ttl, diff);
-        }
+            // correlate using supplied echo fields
+            if ((id == icmp_echo->id) && (seq == icmp_echo->sequence))
+            {
+                char *srcaddr = inet_ntoa(clientaddr.sin_addr);                        
+                double diff =  (((double)received_ts.tv_nsec - (double)icmp_echo->sent.tv_nsec) / 1000000);
+                printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%.3lfms\n", bytes_received, srcaddr, seq, iph->ttl, diff);
+            }
+            break;
+        case ICMP_DEST_UNREACH:
+            printf("destination unreachable: code=%d", icmp->code);
+            break;
+#ifdef DEBUG
+        default:
+            printf("received unhandled ICMP type %d", icmp->type);
+#endif     
     }
-
+    
     return bytes_received;
 }
