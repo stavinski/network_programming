@@ -16,10 +16,10 @@
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 
-#include "networking.h"
+#include "../includes/networking.h"
 
 #ifdef DEBUG
-    #include "debugging.h"
+    #include "../includes/debugging.h"
 #endif
 
 // error codes

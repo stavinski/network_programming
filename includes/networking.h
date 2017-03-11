@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <netinet/ip_icmp.h>
+#include <netinet/tcp.h>
 #include <netinet/in.h>
 
 #ifndef NETWORKING_HEADER_H_
@@ -20,6 +21,7 @@ struct pseudohdr
 typedef struct pseudohdr pseudohdr;
 typedef struct iphdr iphdr;
 typedef struct icmphdr icmphdr;
+typedef struct tcphdr tcphdr;
 typedef struct sockaddr sockaddr;
 typedef struct sockaddr_in sockaddr_in;
 

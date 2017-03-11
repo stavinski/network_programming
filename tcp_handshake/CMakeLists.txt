@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 2.8)
+project(tcp_handshake)
+aux_source_directory(. SRC_LIST)
+file(GLOB HEADERS *.h ../includes/*.h)
+file(GLOB SOURCES *.c ../includes/*.c)
+add_executable(tcp_handshake main.c ${HEADERS} ${SOURCES})

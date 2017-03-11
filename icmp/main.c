@@ -11,7 +11,7 @@
 #include "pinger.h"
 
 #ifdef DEBUG
-    #include "debugging.h"
+    #include "../includes/debugging.h"
 #endif
 
 #define PAYLOAD_SIZE 56
