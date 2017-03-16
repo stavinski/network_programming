@@ -25,19 +25,11 @@ def has_previleges():
             raise    
 
 def parse_destination(raw):
-    dest = None
-    
     try:
-        dest = ip_address(raw)
-    except:
-        try:
-            dest = socket.gethostbyname(raw)
-            dest = ip_address(dest)
-        except:
-            pass
-
-    return dest
-
+        return socket.gethostbyname(raw)
+    except socket.gaierror:
+        return None    
+    
 def ping(dest, seq):
     payload = 'ABCDEFGHIJKLMNOPQRSTUVQXYZ0123456789'
     start = time.clock()
@@ -66,10 +58,9 @@ def ping(dest, seq):
 def main():
     parser = argparse.ArgumentParser('pinger', usage='pinger.py (-d|--destination) [ip or host]')
     parser.add_argument('-d', '--destination',type=str,help='ip or host address to ping')
-
-    has_previleges()
-    
     args = parser.parse_args()
+    
+    has_previleges()
     dest = parse_destination(args.destination)
     
     if dest is None:
