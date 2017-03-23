@@ -4,11 +4,10 @@
 import socket
 from contextlib import contextmanager
 
-class FileServerHeader:
-  pass
-
 class FileServer:
   
+  version = "1.0.0"
+
   def __init__(self, port=9001):
     self.clients = []
     self.port = port
@@ -17,9 +16,12 @@ class FileServer:
   def _service_client(self, conn, addr):
     print "[+] accepted client connection"
     self.clients.append((conn,addr))
-  
+    conn.send("Welcome File Server Version: [%s]" % self.version)
+    command = conn.recv(1024)
+    print command
+      
   def open(self):
-    self.sock.bind(("127.0.0.1", self.port))
+    self.sock.bind(("", self.port))
     self.sock.listen(5)
     print "[*] fileserver listening on {}".format(self.port)
     while True:

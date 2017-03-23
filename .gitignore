@@ -38,3 +38,8 @@ build*
 
 # Python
 *.pyc
+
+# VS
+.vs
+*.sln
+*.pyproj
