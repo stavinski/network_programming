@@ -35,3 +35,6 @@
 # Output dirs
 bin
 build*
+
+# Python
+*.pyc
