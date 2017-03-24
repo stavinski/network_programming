@@ -16,7 +16,7 @@ class FileServer:
   def _service_client(self, conn, addr):
     print "[+] accepted client connection"
     self.clients.append((conn,addr))
-    conn.send("Welcome File Server Version: [%s]" % self.version)
+    conn.send("Welcome File Server Version: [%s]\r\n" % self.version)
     command = conn.recv(1024)
     print command
       
@@ -49,22 +49,19 @@ class FileClient:
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.host = host
     self.port = port
-  
-  def _get_version(self):
-    if not self._connected:
-      raise EnvironmentError
     
-    self.sock.send("VERSION")
-  
   def _get_file(self, filename):
     if not self._connected:
       raise EnvironmentError
     
-    self.sock.send("GET:%s" % filename)
+    self.sock.send("GET:%s\r\n" % filename)
   
   def connect(self):
     self.sock.connect((self.host, self.port))
-    
+    banner = self.sock.recv(512)
+    filename = raw_input("filename to retrieve:")
+    self._get_file(filename)    
   
   def disconnect(self):
-    pass
+    if self._connected:
+      self.sock.close()
