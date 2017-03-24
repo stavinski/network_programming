@@ -14,14 +14,15 @@ def main():
   args = parser.parse_args()
 
   client = FileClient(args.host, args.port)
+  
+  while True:
+      choice = raw_input("[*] enter filename or empty for exit: ")
+      if choice == "":
+          print "[*] exiting"
+          sys.exit()
+      else:
+          client.get_file(choice)
 
-  try:
-      client.connect()
-      print "[*] connecting to %s:%i" % (args.host, args.port)
-  except:
-      sys.exit("[!] could not connect to host")
-  finally:      
-      client.disconnect()
-      
+
 if __name__ == "__main__":
   main()
