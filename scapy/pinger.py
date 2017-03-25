@@ -46,7 +46,7 @@ def ping(dest, seq):
     icmp = resp.getlayer(ICMP)
     
     if int(icmp.type) == ICMP_ECHOREPLY:
-        print "[+] {0} bytes received from {1}: icmp_seq={2} ttl={3}, time={4:.2f}ms".format(ip.len, ip.src, icmp.seq, ip.ttl, duration)        
+        print "[+] {0} bytes received from {1}: icmp_seq={2} ttl={3}, time={4:.3f}ms".format(ip.len, ip.src, icmp.seq, ip.ttl, duration)        
         return
         
     if int(icmp.type) == ICMP_DEST_UNREACHABLE:
@@ -56,8 +56,8 @@ def ping(dest, seq):
     print "[-] unrecognized icmp type returned: icmp_code={0} icmp_type={1}".format(icmp.code, icmp.type)
     
 def main():
-    parser = argparse.ArgumentParser('pinger', usage='pinger.py (-d|--destination) [ip or host]')
-    parser.add_argument('-d', '--destination',type=str,help='ip or host address to ping')
+    parser = argparse.ArgumentParser('pinger')
+    parser.add_argument('destination', type=str, help='ip or host address to ping')
     args = parser.parse_args()
     
     has_previleges()
@@ -67,16 +67,15 @@ def main():
         print ("[-] Error: invalid host or ip address entered");
         sys.exit(1);
     
+    seq = 1
     # keep pinging till we get a keyboard interrupt
     while True:
-        seq = 1
-        
         try:    
             ping(dest, seq)
             time.sleep(1)
             seq += 1                    
         except KeyboardInterrupt:
-            break
+            sys.exit(0);
         
 if __name__ == "__main__":
     main()
