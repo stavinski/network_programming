@@ -10,7 +10,8 @@ and keeps it simpler
 """
 
 import socket
-import os
+
+from os import path
 from contextlib import contextmanager
 
 # defaults
@@ -50,13 +51,13 @@ class FileServer(Logging):
     
       
   def _service_client(self, conn, addr):
-    root_path = "./files/"
+    root_path = path.join(path.curdir, "files")
     self.log_verbose("[+] accepted client connection %s:%d" % (addr[0], addr[1]))
     filename = conn.recv(1024)
     self.log_verbose("[+] received filename request: %s" % filename)
     
     try:
-      with open(root_path + filename, "rb", buffering=4096) as file:
+      with open(path.join(root_path, filename), "rb", buffering=4096) as file:
         data = file.read()
         while len(data) > 0:
           if conn.send(data) == 0:
