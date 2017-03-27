@@ -10,36 +10,80 @@ and keeps it simpler
 """
 
 import socket
+import os
 from contextlib import contextmanager
 
-class FileServer:
+# defaults
+default_host = "127.0.0.1"
+default_port = 9001
+
+class Logging:
   
-  def __init__(self, port=9001):
-    self.port = port
-    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+  def __init__(self):
+    self._verbose = False
+      
+  @property
+  def verbose(self):
+    return self._verbose
   
 
+  @verbose.setter
+  def verbose(self, value):
+    self._verbose = bool(value)
+  
+  
+  def log_standard(self, message):
+    print message
+  
+  
+  def log_verbose(self, message):
+    if self._verbose:
+      print message
+  
+
+class FileServer(Logging):
+  
+  def __init__(self, port=default_port):
+    Logging.__init__(self)
+    self.port = port
+    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    
+      
   def _service_client(self, conn, addr):
-    print "[+] accepted client connection %s:%d" % (addr[0], addr[1])
+    root_path = "./files/"
+    self.log_verbose("[+] accepted client connection %s:%d" % (addr[0], addr[1]))
     filename = conn.recv(1024)
-    print "[+] received filename request: %s" % filename
-    if conn.send("FILE_CONTENTS") == 0:
-        raise RuntimeError("[!] client connection lost")
+    self.log_verbose("[+] received filename request: %s" % filename)
     
-    conn.shutdown(socket.SHUT_RDWR)
-    conn.close()
-    
+    try:
+      with open(root_path + filename, "rb", buffering=4096) as file:
+        data = file.read()
+        while len(data) > 0:
+          if conn.send(data) == 0:
+            self.log_standard("[!] client connection lost")
+            break
+        
+          data = file.read() # get the next data
+    except IOError as e:
+      self.log_standard("[!] error while reading file: %s" % str(e))
+      conn.send("ERR: could not read file %s" % filename)
+    finally:
+      self.log_verbose("[*] shutting down connection to client")
+      conn.shutdown(socket.SHUT_RDWR)
+      conn.close()
+      
   def open(self):
     self.sock.bind(("", self.port))
-    self.sock.listen(5)
-    print "[*] fileserver listening on {}".format(self.port)
+    self.sock.listen(1)
+    self.log_standard("[*] fileserver listening on: {}".format(self.port))
     while True:
       conn, addr = self.sock.accept()
       self._service_client(conn, addr)
     
         
   def close(self):
-    print "[*] closing file server connection"  
+    self.log_standard("[*] closing file server connection")
+    self.sock.shutdown(socket.SHUT_RDWR)
     self.sock.close()
   
 @contextmanager
@@ -53,15 +97,16 @@ def open_file_server(port):
     server.close() #always call close
   
 
-class FileClient:
-  
-  def __init__(self, host="127.0.0.1", port=9001):
+class FileClient(Logging):
+    
+  def __init__(self, host=default_host, port=default_port):
+    Logging.__init__(self)
     self.host = host
     self.port = port
         
 
   def _send_get_file(self, filename):
-    print "[*] getting file: %s" % filename
+    self.log_standard("[*] getting file: %s" % filename)
     self.sock.send(filename)
   
 
@@ -69,14 +114,18 @@ class FileClient:
       data = ""
       received = self.sock.recv(4096)
       while received != "": # empty signifies connection has been closed so we're are done
+          if received.startswith("ERR:"):
+            self.log_standard("[!] %s" % received)
+            break
+          
           data += received
           received = self.sock.recv(4096)
       
       self.sock.shutdown(socket.SHUT_RDWR)
       self.sock.close()
               
-      print "[+] received bytes: %d" % len(data)
-      print data
+      self.log_verbose("[+] received bytes: %d" % len(data))
+      self.log_standard(data)
          
            
   def get_file(self, filename):
