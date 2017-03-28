@@ -48,6 +48,7 @@ class FileServer(Logging):
     Logging.__init__(self)
     self.port = port
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     
       
   def _service_client(self, conn, addr):
@@ -131,6 +132,7 @@ class FileClient(Logging):
            
   def get_file(self, filename):
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)    
     self.sock.connect((self.host, self.port))
     self._send_get_file(filename)   
     self._receive_response()
