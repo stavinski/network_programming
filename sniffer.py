@@ -8,7 +8,8 @@ from ctypes import *
 # map network bytes into useable IP structure
 class IPHeader(Structure):
 	_fields_ = [
-		("ihl_version", c_ubyte),
+		("ihl", c_ubyte, 4),
+		("version", c_ubyte, 4),
 		("tos", c_ubyte),
 		("tot_len", c_ushort),
 		("id", c_ushort),
@@ -20,14 +21,29 @@ class IPHeader(Structure):
 		("dst_addr", c_uint)
 	]
 	
-	
-	def src_ip(self):
-		return socket.inet_ntoa(struct.pack("L",self.src_addr))
-	
-	
-	def dst_ip(self):
-		return socket.inet_ntoa(struct.pack("L",self.dst_addr))
+	def __new__(self, buffer=None):
+		return self.from_buffer_copy(buffer)
+		
+	def __init__(self, buffer=None):
+		self.src_ip = socket.inet_ntoa(struct.pack("<L",self.src_addr))
+		self.dst_ip = socket.inet_ntoa(struct.pack("<L",self.dst_addr))
 
+# map network bytes into useable ICMP structure
+class ICMPHeader(Structure):
+	_fields_ = [
+		("type", c_ubyte),
+		("code", c_ubyte),
+		("checksum", c_ushort),
+		("unused", c_ushort),
+		("next_hop_mtu", c_ushort)
+	]
+	
+	def __new__(self, buffer=None):
+		return self.from_buffer_copy(buffer)
+		
+	def __init(self, buffer=None):
+		pass
+		
 resolves = {} # hold previous resolves
 		
 def is_windows():
@@ -62,11 +78,20 @@ def main(host):
 	try:
 		while True:
 			data = sock.recv(65565)
-			header = IPHeader.from_buffer_copy(data)
-			src = resolve_ip(header.src_ip())
-			dst = resolve_ip(header.dst_ip())
+			ip_header = IPHeader(data[0:20])
+			src = resolve_ip(ip_header.src_ip)
+			dst = resolve_ip(ip_header.dst_ip)
 			
-			print "src: %s dst: %s len: %d ttl: %d" % (src, dst, header.tot_len, header.ttl)
+			print "[+] proto: %x \t %s -> %s" % (ip_header.protocol, src, dst)
+			
+			if ip_header.protocol == socket.IPPROTO_ICMP:
+				offset = ip_header.ihl * 4 # length is in words (32 bits)
+				icmp_data = data[offset:offset + sizeof(ICMPHeader)]
+				
+				icmp_header = ICMPHeader(icmp_data)
+				
+				print "[+] received ICMP type=%d code=%d" % (icmp_header.type, icmp_header.code)
+			
 	except KeyboardInterrupt:
 		if is_windows():
 			sock.ioctl(socket.SIO_RCVALL, socket.RCVALL_OFF)
