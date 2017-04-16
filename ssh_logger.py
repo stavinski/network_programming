@@ -110,7 +110,8 @@ def setup_server(client, args):
     buffer = six.BytesIO()
     cmd = ""
     fileobj = chan.makefile("rw")
-    chan.send("%s@localhost:~$ " % transport.get_username())
+    host_name = args.host_name
+    chan.send("%s@%s:~$ " % (transport.get_username(), host_name))
     while True:
         byte = fileobj.read(1)
         if not byte or byte == '\x04':
@@ -130,7 +131,7 @@ def setup_server(client, args):
             break
           
           fileobj.write("\r\n")
-          chan.send("%s@localhost:~$ " % transport.get_username())
+          chan.send("%s@%s:~$ " % (transport.get_username(), host_name))
           buffer = six.BytesIO()
           buffer
         else:
@@ -172,6 +173,7 @@ def main():
   parser = ArgumentParser("SSH Logger", formatter_class=ArgumentDefaultsHelpFormatter)
   parser.add_argument("ip_address", type=str, help="ip address to bind to", default="")
   parser.add_argument("port", type=int, help="ip address to bind to (best to avoid <= 1024 otherwise root access required)")
+  parser.add_argument("--host_name", type=str, help="name of host to use", default="localhost")
   args = parser.parse_args()
   
   setup_socket(args)
