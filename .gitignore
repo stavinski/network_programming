@@ -43,3 +43,7 @@ build*
 .vs
 *.sln
 *.pyproj
+
+# logs
+*.log
+
