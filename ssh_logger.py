@@ -5,6 +5,7 @@
 # a standup SSH tool that will log attempts to login
 # and then log subsequent commands passed to it
 
+import logging
 import six
 import sys
 import socket
@@ -15,7 +16,11 @@ from binascii import hexlify
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
 # logging
-paramiko.util.log_to_file("ssh.log")
+paramiko_logger = logging.getLogger("paramiko")
+paramiko_logger.setLevel(logging.ERROR)
+paramiko_logger.addHandler(logging.StreamHandler())
+
+logger = logging.getLogger("ssh")
 
 # use generated rsa key
 host_key = paramiko.RSAKey(filename="ssh_key.key")
@@ -27,7 +32,7 @@ class SSHServer(paramiko.ServerInterface):
     self._attempts = config["attempts"]
   
   def check_channel_request(self, kind, chan_id):
-    print "[%d] received channel request: %s" % (chan_id, kind)
+    logger.debug("received channel request: %s", chan_id, kind)
     if kind == "session":
       return paramiko.OPEN_SUCCEEDED
     
@@ -35,7 +40,7 @@ class SSHServer(paramiko.ServerInterface):
   
   
   def check_auth_password(self, username, pwd):
-    print "[+] received password auth: [%s] => [%s]" % (username, pwd)
+    logger.debug("received password auth: [%s] => [%s]", username, pwd)
     #print "[*] attempts: %d" % self._attempts
     
     if self._attempts == 0:
@@ -46,7 +51,7 @@ class SSHServer(paramiko.ServerInterface):
   
   
   def check_auth_publickey(self, username, key):
-    print "[+] received public key auth: [%s] => [%s]" % (username, u(hexlify(key.get_fingerprint())))
+    logger.debug("received public key auth: [%s] => [%s]", username, hexlify(key.get_fingerprint()))
     if self._config["allow_public_key"]:
       return paramiko.AUTH_SUCCESSFUL
     
@@ -61,34 +66,34 @@ class SSHServer(paramiko.ServerInterface):
   
   
   def check_channel_env_request(self, chan, name, value):
-    print "[%d] received env request: [%s] => [%s]" % (chan.get_id(), name, value) 
+    logger.debug("received env request: [%s] => [%s]", name, value) 
     return True
   
   
   def check_channel_exec_request(self, chan, cmd):
-    print "[%d] received exec request: [%s]" % (chan.get_id(), cmd)
-     
+    logger.debug("received exec request: [%s]", cmd)
+    return False 
   
   def check_channel_pty_request(self, chan, term, w, h, pw, ph, modes):
-    print "[%d] received pty request" % chan.get_id()
+    logger.debug("received pty request")
     return True
   
   
   def check_port_forward_request(self, addr, port):
-    print "[+] received port forward request: %s:%d" % (addr, port)
+    logger.debug("received port forward request: %s:%d", addr, port)
     return False
   
   
   def check_global_request(self, kind, msg):
-    print "[+] recieved global request: [%s] => [%s]" % (kind, msg)
+    logger.debug("received global request: [%s] => [%s]", kind, msg)
     return False
 
 
   def check_channel_shell_request(self, chan):
-    print "[%d] shell request" % chan.get_id()
+    logger.debug("shell request")
     return True
 
-def setup_server(client, args):
+def setup_server(client, client_ip, client_port, args):
   try:
     transport = paramiko.Transport(client)
     transport.add_server_key(host_key)
@@ -103,7 +108,7 @@ def setup_server(client, args):
     if chan is None:
       sys.exit("[!] no channel")
       
-    print "[%d] authenticated" % chan.get_id()
+    logger.debug("[%s:%d] authenticated", client_ip, client_port)
     
     # this all needs tidying up big time!!!
     
@@ -123,7 +128,7 @@ def setup_server(client, args):
             fileobj.write('\b \b')
             buffer.truncate(buffer.len - 1)
         elif byte in (b'\r', b'\n'):
-          print "[%d] received: %s" % (chan.get_id(), buffer.getvalue())
+          logger.debug("[%s:%d] received: %s", client_ip, client_port, buffer.getvalue())
           
           if buffer.getvalue() in ["exit", "logout"]:
             chan.send("\r\nlogout\r\n")
@@ -135,13 +140,10 @@ def setup_server(client, args):
           buffer = six.BytesIO()
           buffer
         else:
-          #logger.debug(repr(byte))
           buffer.write(byte)
           fileobj.write(byte)
                           
-  finally:
-    chan.shutdown(2)
-    chan.close()
+  finally:      
     transport.close()
 
 def setup_socket(args):
@@ -155,12 +157,12 @@ def setup_socket(args):
     
   try:
     sock.listen(100)
-    print "[*] listening on %s:%d" % (args.ip_address, args.port)
+    logger.debug("listening on %s:%d", args.ip_address, args.port)
     
     while True:
       (client, addr) = sock.accept()
-      print "[+] received client connection %s:%d" % (addr[0], addr[1])
-      client_handler = threading.Thread(target=setup_server, args=(client, args))
+      logger.debug("received client connection %s:%d", addr[0], addr[1])
+      client_handler = threading.Thread(target=setup_server, args=(client, addr[0], addr[1], args))
       client_handler.start()
   except socket.error as e:
     sys.exit("[!] could not listen and accept: %s" % e.strerror)
@@ -168,14 +170,33 @@ def setup_socket(args):
     sys.exit("[!] stopping")
     sock.shutdown(socket.SHUT_RDWR)
     sock.close()
+
+def setup_logging(args):
+  logger.setLevel(logging.DEBUG)
+  formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
   
+  if args.log_console:
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    
+  if args.log_file is not None:
+    file_handler = logging.FileHandler(filename=args.log_file)
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
 def main():
   parser = ArgumentParser("SSH Logger", formatter_class=ArgumentDefaultsHelpFormatter)
   parser.add_argument("ip_address", type=str, help="ip address to bind to", default="")
   parser.add_argument("port", type=int, help="ip address to bind to (best to avoid <= 1024 otherwise root access required)")
   parser.add_argument("--host_name", type=str, help="name of host to use", default="localhost")
+  parser.add_argument('-lc', "--log-console", help="log output to console", action='store_true', default=True)
+  parser.add_argument('-lf', "--log-file", metavar="LOG_FILE", help="log output to specified file", type=str, default=None)  
   args = parser.parse_args()
   
+  setup_logging(args)
   setup_socket(args)
 
 if __name__ == "__main__":

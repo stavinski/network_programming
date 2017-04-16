@@ -53,38 +53,38 @@ class FileServer(Logging):
       
   def _service_client(self, conn, addr):
     root_path = path.join(path.curdir, "files")
-    self.log_verbose("[+] accepted client connection %s:%d" % (addr[0], addr[1]))
+    Logging.log_verbose(self, "[+] accepted client connection %s:%d" % (addr[0], addr[1]))
     filename = conn.recv(1024)
-    self.log_verbose("[+] received filename request: %s" % filename)
+    Logging.log_verbose(self, "[+] received filename request: %s" % filename)
     
     try:
       with open(path.join(root_path, filename), "rb", buffering=4096) as file:
         data = file.read()
         while len(data) > 0:
           if conn.send(data) == 0:
-            self.log_standard("[!] client connection lost")
+            Logging.log_standard(self, "[!] client connection lost")
             break
         
           data = file.read() # get the next data
     except IOError as e:
-      self.log_standard("[!] error while reading file: %s" % str(e))
+      Logging.log_standard(self, "[!] error while reading file: %s" % str(e))
       conn.send("ERR: could not read file %s" % filename)
     finally:
-      self.log_verbose("[*] shutting down connection to client")
+      Logging.log_verbose(self, "[*] shutting down connection to client")
       conn.shutdown(socket.SHUT_RDWR)
       conn.close()
       
   def open(self):
     self.sock.bind(("", self.port))
     self.sock.listen(1)
-    self.log_standard("[*] fileserver listening on: {}".format(self.port))
+    Logging.log_standard(self, "[*] fileserver listening on: {}".format(self.port))
     while True:
       conn, addr = self.sock.accept()
       self._service_client(conn, addr)
     
         
   def close(self):
-    self.log_standard("[*] closing file server connection")
+    Logging.log_standard(self, "[*] closing file server connection")
     self.sock.shutdown(socket.SHUT_RDWR)
     self.sock.close()
   
@@ -108,7 +108,7 @@ class FileClient(Logging):
         
 
   def _send_get_file(self, filename):
-    self.log_standard("[*] getting file: %s" % filename)
+    Logging.log_standard(self, "[*] getting file: %s" % filename)
     self.sock.send(filename)
   
 
@@ -117,7 +117,7 @@ class FileClient(Logging):
       received = self.sock.recv(4096)
       while received != "": # empty signifies connection has been closed so we're are done
           if received.startswith("ERR:"):
-            self.log_standard("[!] %s" % received)
+            Logging.log_standard(self, "[!] %s" % received)
             break
           
           data += received
@@ -126,8 +126,8 @@ class FileClient(Logging):
       self.sock.shutdown(socket.SHUT_RDWR)
       self.sock.close()
               
-      self.log_verbose("[+] received bytes: %d" % len(data))
-      self.log_standard(data)
+      Logging.log_verbose(self, "[+] received bytes: %d" % len(data))
+      Logging.log_standard(self, data)
          
            
   def get_file(self, filename):
