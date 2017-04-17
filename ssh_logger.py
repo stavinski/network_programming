@@ -27,12 +27,13 @@ host_key = paramiko.RSAKey(filename="ssh_key.key")
 
 class SSHServer(paramiko.ServerInterface):
         
-  def __init__(self, config={ "attempts": 0, "allow_public_key": True }):
-    self._config = config
-    self._attempts = config["attempts"]
+  def __init__(self, client_ip, config):
+    self._client_ip = client_ip
+    self._attempts = config.login_attempts
+    self._allow_public_key = config.allow_public_key
   
   def check_channel_request(self, kind, chan_id):
-    logger.debug("received channel request: %s", chan_id, kind)
+    logger.info("[%s] received channel request: %s", self._client_ip, kind)
     if kind == "session":
       return paramiko.OPEN_SUCCEEDED
     
@@ -40,8 +41,7 @@ class SSHServer(paramiko.ServerInterface):
   
   
   def check_auth_password(self, username, pwd):
-    logger.debug("received password auth: [%s] => [%s]", username, pwd)
-    #print "[*] attempts: %d" % self._attempts
+    logger.info("[%s] received password auth: [%s] => [%s]", self._client_ip, username, pwd)
     
     if self._attempts == 0:
       return paramiko.AUTH_SUCCESSFUL
@@ -51,53 +51,53 @@ class SSHServer(paramiko.ServerInterface):
   
   
   def check_auth_publickey(self, username, key):
-    logger.debug("received public key auth: [%s] => [%s]", username, hexlify(key.get_fingerprint()))
-    if self._config["allow_public_key"]:
+    logger.info("[%s] received public key auth: [%s] => [%s]", self._client_ip, username, hexlify(key.get_fingerprint()))
+    if self._allow_public_key:
       return paramiko.AUTH_SUCCESSFUL
     
     return paramiko.AUTH_FAILED
   
   def get_allowed_auths(self, username):
     allowed = ["password"] # awlways allow password
-    if self._config["allow_public_key"]:
+    if self._allow_public_key:
       allowed.append("publickey")
     
     return ",".join(allowed)
   
   
   def check_channel_env_request(self, chan, name, value):
-    logger.debug("received env request: [%s] => [%s]", name, value) 
+    logger.info("[%s] received env request: [%s] => [%s]", self._client_ip, name, value) 
     return True
   
   
   def check_channel_exec_request(self, chan, cmd):
-    logger.debug("received exec request: [%s]", cmd)
+    logger.info("[%s] received exec request: [%s]", self._client_ip, cmd)
     return False 
   
   def check_channel_pty_request(self, chan, term, w, h, pw, ph, modes):
-    logger.debug("received pty request")
+    logger.info("[%s] received pty request", self._client_ip)
     return True
   
   
   def check_port_forward_request(self, addr, port):
-    logger.debug("received port forward request: %s:%d", addr, port)
+    logger.info("[%s] received port forward request: %s:%d", self._client_ip, addr, port)
     return False
   
   
   def check_global_request(self, kind, msg):
-    logger.debug("received global request: [%s] => [%s]", kind, msg)
+    logger.info("[%s] received global request: [%s] => [%s]", self._client_ip, kind, msg)
     return False
 
 
   def check_channel_shell_request(self, chan):
-    logger.debug("shell request")
+    logger.info("[%s] shell request", self._client_ip)
     return True
 
 def setup_server(client, client_ip, client_port, args):
   try:
     transport = paramiko.Transport(client)
     transport.add_server_key(host_key)
-    server = SSHServer()
+    server = SSHServer(client_ip, args)
     
     try:
       transport.start_server(server=server)
@@ -108,7 +108,7 @@ def setup_server(client, client_ip, client_port, args):
     if chan is None:
       sys.exit("[!] no channel")
       
-    logger.debug("[%s:%d] authenticated", client_ip, client_port)
+    logger.info("[%s] authenticated", client_ip)
     
     # this all needs tidying up big time!!!
     
@@ -128,7 +128,7 @@ def setup_server(client, client_ip, client_port, args):
             fileobj.write('\b \b')
             buffer.truncate(buffer.len - 1)
         elif byte in (b'\r', b'\n'):
-          logger.debug("[%s:%d] received: %s", client_ip, client_port, buffer.getvalue())
+          logger.info("[%s] received: %s", client_ip, buffer.getvalue())
           
           if buffer.getvalue() in ["exit", "logout"]:
             chan.send("\r\nlogout\r\n")
@@ -138,7 +138,6 @@ def setup_server(client, client_ip, client_port, args):
           fileobj.write("\r\n")
           chan.send("%s@%s:~$ " % (transport.get_username(), host_name))
           buffer = six.BytesIO()
-          buffer
         else:
           buffer.write(byte)
           fileobj.write(byte)
@@ -157,11 +156,11 @@ def setup_socket(args):
     
   try:
     sock.listen(100)
-    logger.debug("listening on %s:%d", args.ip_address, args.port)
+    logger.info("listening on %s:%d", args.ip_address, args.port)
     
     while True:
       (client, addr) = sock.accept()
-      logger.debug("received client connection %s:%d", addr[0], addr[1])
+      logger.info("[%s] client connection", addr[0])
       client_handler = threading.Thread(target=setup_server, args=(client, addr[0], addr[1], args))
       client_handler.start()
   except socket.error as e:
@@ -172,18 +171,18 @@ def setup_socket(args):
     sock.close()
 
 def setup_logging(args):
-  logger.setLevel(logging.DEBUG)
+  logger.setLevel(logging.INFO)
   formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
   
   if args.log_console:
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
+    console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
     
   if args.log_file is not None:
     file_handler = logging.FileHandler(filename=args.log_file)
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
@@ -191,9 +190,12 @@ def main():
   parser = ArgumentParser("SSH Logger", formatter_class=ArgumentDefaultsHelpFormatter)
   parser.add_argument("ip_address", type=str, help="ip address to bind to", default="")
   parser.add_argument("port", type=int, help="ip address to bind to (best to avoid <= 1024 otherwise root access required)")
-  parser.add_argument("--host_name", type=str, help="name of host to use", default="localhost")
-  parser.add_argument('-lc', "--log-console", help="log output to console", action='store_true', default=True)
-  parser.add_argument('-lf', "--log-file", metavar="LOG_FILE", help="log output to specified file", type=str, default=None)  
+  parser.add_argument("--host-name", type=str, help="name of host to use", default="localhost")
+  parser.add_argument("--log-console", help="log output to console", action='store_true', default=True)
+  parser.add_argument("--log-file", metavar="LOG_FILE", help="log output to specified file", type=str, default=None)  
+  parser.add_argument("--login-attempts", help="number attempts before allowing login", type=int, default=10)
+  parser.add_argument("--allow-public-key", help="allow public key login", action="store_true")  
+  
   args = parser.parse_args()
   
   setup_logging(args)
