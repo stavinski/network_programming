@@ -198,7 +198,7 @@ def main():
   parser.add_argument("ip_address", type=str, help="ip address to bind to", default="")
   parser.add_argument("port", type=int, help="ip address to bind to (best to avoid <= 1024 otherwise root access required)")
   parser.add_argument("--host-name", type=str, help="name of host to use", default="localhost")
-  parser.add_argument("--log-console", help="log output to console", action='store_true', default=True)
+  parser.add_argument("--log-console", help="log output to console", action='store_true', default=False)
   parser.add_argument("--log-file", metavar="LOG_FILE", help="log output to specified file", type=str, default=None)  
   parser.add_argument("--login-attempts", help="number attempts before allowing login", type=int, default=10)
   parser.add_argument("--allow-public-key", help="allow public key login", action="store_true")  
