@@ -22,6 +22,10 @@ paramiko_logger.addHandler(logging.StreamHandler())
 
 logger = logging.getLogger("ssh")
 
+# keep record of attempts by ip
+attempts = {}
+
+
 # use generated rsa key
 host_key = paramiko.RSAKey(filename="ssh_key.key")
 
@@ -43,10 +47,13 @@ class SSHServer(paramiko.ServerInterface):
   def check_auth_password(self, username, pwd):
     logger.info("[%s] received password auth: [%s] => [%s]", self._client_ip, username, pwd)
     
-    if self._attempts == 0:
+    if not attempts.has_key(self._client_ip):
+      attempts[self._client_ip] = self._attempts
+    
+    if attempts[self._client_ip] == 0:
       return paramiko.AUTH_SUCCESSFUL
     
-    self._attempts -= 1
+    attempts[self._client_ip] -= 1
     return paramiko.AUTH_FAILED
   
   
