@@ -77,7 +77,7 @@ def main(host):
 	
 	try:
 		while True:
-			data = sock.recv(65565)
+			data = sock.recvfrom(65565)[0]
 			ip_header = IPHeader(data[0:20])
 			src = resolve_ip(ip_header.src_ip)
 			dst = resolve_ip(ip_header.dst_ip)
@@ -86,9 +86,9 @@ def main(host):
 			
 			if ip_header.protocol == socket.IPPROTO_ICMP:
 				offset = ip_header.ihl * 4 # length is in words (32 bits)
-				icmp_data = data[offset:offset + sizeof(ICMPHeader)]
+				buf = data[offset:offset + sizeof(ICMPHeader)]
 				
-				icmp_header = ICMPHeader(icmp_data)
+				icmp_header = ICMPHeader(buf)
 				
 				print "[+] received ICMP type=%d code=%d" % (icmp_header.type, icmp_header.code)
 			
