@@ -18,7 +18,7 @@ class DHCPInterface(object):
     DHCP_DPORT = 67
     IP_BROADCAST = "255.255.255.255"
     IP_NULL = "0.0.0.0"
-    MAC_BROADCAAST = "ff:ff:ff:ff:ff:ff"
+    MAC_BROADCAST = "ff:ff:ff:ff:ff:ff"
 
     def __init__(self, iface_name, mac, timeout):
         self.iface = None
@@ -34,24 +34,7 @@ class DHCPInterface(object):
             raise ArgumentError("could not find iface: %s" % iface_name)
 
     def craft_udp_packet(self):
-        return Ether(src=self.mac, dst=self.MAC_BROADCAAST)/IP(src=self.IP_NULL, dst=self.IP_BROADCAST)/UDP(sport=self.DHCP_SPORT, dport=self.DHCP_DPORT)
-
-    def transaction(self):
-        print "[+] sending discover packet"
-        offer = self.send_discover()
-        if not offer:
-            print "[!] offer packet not received"
-            return
-
-        print "[+] offer packet received"
-        print "[+] sending request packet"
-        ack = self.send_request(offer)
-        if not ack:
-            print "[!] ack packet not received"
-            return
-
-        print "[+] ack packet received"
-        ack.display()
+        return Ether(src=self.mac, dst=self.MAC_BROADCAST) / IP(src=self.IP_NULL, dst=self.IP_BROADCAST) / UDP(sport=self.DHCP_SPORT, dport=self.DHCP_DPORT)
 
     def send_discover(self):
         pkt = self.craft_udp_packet() / BOOTP(chaddr=self.mac_raw, xid=RandInt()) / DHCP(options=[
@@ -61,11 +44,11 @@ class DHCPInterface(object):
 
         return srp1(pkt, timeout=self.timeout, iface=self.iface["name"])
 
-    def send_request(self, offer):
+    def send_request(self, **kwargs):
 
-        myip = offer[BOOTP].yiaddr
-        sip = offer[BOOTP].siaddr
-        xid = offer[BOOTP].xid
+        myip = kwargs["ip"]
+        sip = kwargs["server_ip"]
+        xid = kwargs["xid"]
 
         request = self.craft_udp_packet() / BOOTP(chaddr=self.mac_raw, xid=xid) / DHCP(
             options=[
@@ -102,18 +85,3 @@ def list_network_interfaces():
         msg += "[%s] => %s\n" % (iface["name"], iface["mac"])
 
     return msg
-
-def main(iface_name, mac, timeout):
-    dhcp = DHCPInterface(iface_name, mac, timeout)
-    dhcp.transaction()
-    
-    
-if __name__ == "__main__":
-
-    parser = ArgumentParser(description="DHCP tool", epilog=list_network_interfaces(), formatter_class=RawTextHelpFormatter)
-    parser.add_argument('iface', type=str, help='network interface to use')
-    parser.add_argument("mac", type=str, help="MAC address of network interface")
-    parser.add_argument("-t", "--timeout", help="timeout in seconds to wait for response(s)", type=int, default=5)
-
-    args = parser.parse_args()
-    main(args.iface, args.mac, args.timeout)
