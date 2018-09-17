@@ -45,12 +45,18 @@ def scanport(port): # Function to scan a given port
 	try:
 		srcport = RandShort() # Generate Port Number
 		conf.verb = 0 # Hide output
-		SYNACKpkt = sr1(IP(dst = target)/TCP(sport = srcport, dport = port, flags = "S")) # Send SYN and recieve RST-ACK or SYN-ACK
-		pktflags = SYNACKpkt.getlayer(TCP).flags # Extract flags of recived packet
-		if pktflags == SYNACK: # Cross reference Flags
-			return True # If open, return true
+		SYNACKpkt = sr1(IP(dst = target)/TCP(sport = srcport, dport = port, flags = "S"), timeout=3) # Send SYN and recieve RST-ACK or SYN-ACK
+
+		# no resp
+		if SYNACKpkt:
+			pktflags = SYNACKpkt.getlayer(TCP).flags # Extract flags of recived packet
+			if pktflags == SYNACK: # Cross reference Flags
+				return True # If open, return true
+			else:
+				return False # If closed, return false
 		else:
-			return False # If closed, return false
+			return False
+		
 		RSTpkt = IP(dst = target)/TCP(sport = srcport, dport = port, flags = "R") # Construct RST packet
 		send(RSTpkt) # Send RST packet
 	except KeyboardInterrupt: # In case the user needs to quit
